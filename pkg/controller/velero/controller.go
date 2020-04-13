@@ -9,6 +9,7 @@ import (
 
 	veleroInstallCR "github.com/openshift/managed-velero-operator/pkg/apis/managed/v1alpha2"
 
+	configv1 "github.com/openshift/api/config/v1"
 	minterv1 "github.com/openshift/cloud-credential-operator/pkg/apis/cloudcredential/v1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -136,22 +137,31 @@ func (r *ReconcileVelero) Reconcile(request reconcile.Request) (reconcile.Result
 		return reconcile.Result{}, err
 	}
 
-	// Verify that we have received an AWS region from the platform
-	if infraStatus.PlatformStatus.AWS == nil || len(infraStatus.PlatformStatus.AWS.Region) < 1 {
-		return reconcile.Result{}, fmt.Errorf("unable to determine AWS region")
+	// Verify that we have received the needed platform information
+	switch infraStatus.PlatformStatus.Type {
+	case configv1.AWSPlatformType:
+		if infraStatus.PlatformStatus.AWS == nil ||
+			len(infraStatus.PlatformStatus.AWS.Region) < 1 {
+			return reconcile.Result{}, fmt.Errorf("unable to determine AWS region")
+		}
+	case configv1.GCPPlatformType:
+		if infraStatus.PlatformStatus.GCP == nil ||
+			len(infraStatus.PlatformStatus.GCP.Region) < 1 ||
+			len(infraStatus.PlatformStatus.GCP.ProjectID) < 1 {
+			return reconcile.Result{}, fmt.Errorf("unable to determine GCP region")
+		}
+	default:
+		return reconcile.Result{}, fmt.Errorf("unable to determine platform")
 	}
 
-	//get a driver
+	// Create the Storage Driver
 	drv := storage.NewDriver(infraStatus, r.client)
 
 	// Check if bucket needs to be reconciled
 	if instance.StorageBucketReconcileRequired(s3ReconcilePeriod) {
-		//Create Storage
-		err := drv.CreateStorage(reqLogger, instance, infraStatus.InfrastructureName)
-		if err != nil {
-			fmt.Println(err)
-		}
-
+		// Create storage using the storage driver
+		// Always return from this, as we will either be updating the status *or* there will be an error.
+		return reconcile.Result{}, drv.CreateStorage(reqLogger, instance)
 	}
 
 	// Now go provision Velero

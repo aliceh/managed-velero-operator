@@ -35,9 +35,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
+	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	configv1 "github.com/openshift/api/config/v1"
 	minterv1 "github.com/openshift/cloud-credential-operator/pkg/apis/cloudcredential/v1"
-	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 )
@@ -54,7 +54,10 @@ var log = logf.Log.WithName(version.OperatorName)
 const ManagedVeleroOperatorNamespace = "openshift-velero"
 
 // supportedPlatforms is the list of platform supported by the operator
-var supportedPlatforms = []configv1.PlatformType{configv1.AWSPlatformType}
+var supportedPlatforms = []configv1.PlatformType{
+	configv1.AWSPlatformType,
+	configv1.GCPPlatformType,
+}
 
 func printVersion() {
 	log.Info(fmt.Sprintf("Operator Version: %s", version.Version))
